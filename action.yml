@@ -1,0 +1,47 @@
+name: 'Import Custom WSL Image'
+description: 'An action to import a custom WSL image from a specified Docker image'
+
+inputs:
+  docker_image:
+    description: 'The Docker image to use as the base for the WSL image'
+    required: true
+  wsl_image_name:
+    description: 'The name of the WSL image to be created'
+    required: true
+  install_location:
+    description: 'The directory where the WSL image will be installed. Defaults to %USERPROFILE%\\wsl'
+    required: false
+    default: '%USERPROFILE%\\wsl'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 'Ensure Runner is Windows'
+      if: ${{ runner.os != 'Windows' }}
+      run: |
+        echo "This action must be run on a Windows runner."
+        exit 1
+
+    - name: 'Pull Docker Image'
+      run: |
+        docker pull ${{ inputs.docker_image }}
+
+    - name: 'Create Temporary Container'
+      run: |
+        docker create --name temp-container ${{ inputs.docker_image }}
+
+    - name: 'Export Flattened Image'
+      run: |
+        docker export temp-container > image.tar
+
+    - name: 'Import Image into WSL'
+      run: |
+        wsl --import ${{ inputs.wsl_image_name }} ${{ inputs.install_location }} ./image.tar
+
+    - name: 'Remove Temporary Image File'
+      run: |
+        del image.tar
+
+    - name: 'Clean Up Temporary Container'
+      run: |
+        docker rm temp-container
